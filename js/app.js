@@ -30,16 +30,56 @@ let state = {
   theme: 'dark'
 };
 
-function initApp() {
+// ==========================================
+// SINCRONIZAÇÃO COM VERCEL BLOB (nuvem)
+// ==========================================
+async function loadFromBlob() {
+  try {
+    const res = await fetch('/api/carregar');
+    if (!res.ok) return null;
+    return await res.json(); // pode ser null se nada foi salvo ainda
+  } catch (e) {
+    console.warn('Não foi possível carregar do Blob (usando dados locais):', e);
+    return null;
+  }
+}
+
+async function saveToBlob() {
+  try {
+    await fetch('/api/salvar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        materials: state.materials,
+        teams: state.teams,
+        logs: state.logs
+      })
+    });
+  } catch (e) {
+    console.warn('Não foi possível salvar no Blob agora:', e);
+  }
+}
+
+async function initApp() {
+  const remoto = await loadFromBlob();
+
   try {
     const savedMaterials = localStorage.getItem(STORAGE_KEYS.MATERIALS);
     const savedTeams = localStorage.getItem(STORAGE_KEYS.TEAMS);
     const savedLogs = localStorage.getItem(STORAGE_KEYS.LOGS);
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
 
-    state.materials = savedMaterials ? JSON.parse(savedMaterials) : INITIAL_MATERIALS;
-    state.teams = savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS;
-    state.logs = savedLogs ? JSON.parse(savedLogs) : INITIAL_LOGS;
+    if (remoto) {
+      // Nuvem manda: garante que todos os dispositivos vejam o mesmo estado
+      state.materials = remoto.materials ?? INITIAL_MATERIALS;
+      state.teams = remoto.teams ?? INITIAL_TEAMS;
+      state.logs = remoto.logs ?? INITIAL_LOGS;
+    } else {
+      // Sem nada na nuvem ainda: usa o que tiver local, ou os padrões
+      state.materials = savedMaterials ? JSON.parse(savedMaterials) : INITIAL_MATERIALS;
+      state.teams = savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS;
+      state.logs = savedLogs ? JSON.parse(savedLogs) : INITIAL_LOGS;
+    }
     state.theme = savedTheme || 'dark';
   } catch (e) {
     console.warn('Usando dados padrões:', e);
@@ -65,6 +105,7 @@ function saveState() {
   } catch (e) {
     console.error('Erro ao salvar state:', e);
   }
+  saveToBlob(); // sincroniza com a nuvem em segundo plano, sem travar a tela
 }
 
 // ==========================================
