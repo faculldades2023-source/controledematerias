@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstoqueOps - Controle de Materiais Técnico</title>
+  <meta name="description" content="Sistema de baixa de materiais e controle de estoque para equipes técnicas.">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+        <div class="brand-text">
+          <h1>EstoqueOps</h1>
+          <p>Operação Técnica</p>
+        </div>
+      </div>
+
+      <!-- Menu de Navegação -->
+      <ul class="nav-menu">
+        <li class="nav-item active" data-tab="dashboard">
+          <button type="button" data-tab="dashboard"><i class="fa-solid fa-chart-pie"></i> Painel Geral</button>
+        </li>
+        <li class="nav-item" data-tab="catalog">
+          <button type="button" data-tab="catalog">
+            <i class="fa-solid fa-box"></i> Estoque Completo
+            <span class="nav-badge" id="nav-alert-count" style="display: none;">0</span>
+          </button>
+        </li>
+        <li class="nav-item" data-tab="deduct-tab">
+          <button type="button" data-tab="deduct-tab"><i class="fa-solid fa-minus-circle"></i> Registrar Baixa</button>
+        </li>
+        <li class="nav-item" data-tab="teams">
+          <button type="button" data-tab="teams"><i class="fa-solid fa-users-gear"></i> Gerenciar Equipes</button>
+        </li>
+        <li class="nav-item" data-tab="history">
+          <button type="button" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Saídas</button>
+        </li>
+        <li class="nav-item" data-tab="pdf-export">
+          <button type="button" data-tab="pdf-export"><i class="fa-solid fa-file-pdf"></i> Relatório PDF</button>
+        </li>
+      </ul>
+
+      <!-- Botão Ação Rápida de Baixa -->
+      <button class="btn-quick-deduct" id="btn-open-quick-deduct" type="button">
+        <i class="fa-solid fa-bolt"></i> Dar Baixa Rápida
+      </button>
+
+      <div class="sidebar-footer">
+        <button class="theme-toggle-btn" id="theme-toggle" type="button">
+          <i class="fa-solid fa-moon"></i> <span>Tema</span>
+        </button>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">v1.4.0</span>
+      </div>
+    </aside>
+
+    <!-- Main Application Content -->
+    <main class="main-content">
+      
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="page-title">
+          <h2 id="current-tab-title">Painel Geral</h2>
+          <p id="current-tab-sub">Visão panorâmica do estoque e solicitações de materiais</p>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn-secondary" id="btn-open-add-tech" type="button">
+            <i class="fa-solid fa-user-plus"></i> Nova Equipe
+          </button>
+          <button class="btn-secondary" id="btn-open-add-material" type="button">
+            <i class="fa-solid fa-plus"></i> Novo Item
+          </button>
+          <button class="btn-primary" id="btn-open-add-stock" type="button">
+            <i class="fa-solid fa-dolly"></i> Dar Entrada
+          </button>
+        </div>
+      </header>
+
+      <!-- TAB 1: DASHBOARD OVERVIEW -->
+      <section class="tab-view active" id="tab-dashboard">
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon blue"><i class="fa-solid fa-boxes-packing"></i></div>
+            <div class="kpi-info">
+              <div class="kpi-value" id="kpi-total-items">0</div>
+              <div class="kpi-label">Itens no Catálogo</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon amber"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="kpi-info">
+              <div class="kpi-value" id="kpi-warning-items">0</div>
+              <div class="kpi-label">Estoque Mínimo / Baixo</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon red"><i class="fa-solid fa-circle-xmark"></i></div>
+            <div class="kpi-info">
+              <div class="kpi-value" id="kpi-critical-items">0</div>
+              <div class="kpi-label">Itens Esgotados</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon green"><i class="fa-solid fa-arrow-down-wide-short"></i></div>
+            <div class="kpi-info">
+              <div class="kpi-value" id="kpi-total-withdrawals">0</div>
+              <div class="kpi-label">Baixas Registradas</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner de Alerta -->
+        <div class="alert-banner" id="dashboard-alert-banner" style="display: none;">
+          <div class="alert-banner-content">
+            <div class="alert-banner-icon"><i class="fa-solid fa-bell-concierge"></i></div>
+            <div class="alert-banner-text">
+              <h4>Atenção: Materiais com estoque zerado ou baixo!</h4>
+              <p id="alert-banner-detail">Existem itens que precisam de entrada de estoque.</p>
+            </div>
+          </div>
+          <button class="btn-banner" id="btn-banner-go-deduct" type="button">
+            <i class="fa-solid fa-box"></i> Ver Estoque
+          </button>
+        </div>
+
+        <!-- Materiais em Estado Crítico ou Baixo -->
+        <div class="section-header">
+          <h3><i class="fa-solid fa-triangle-exclamation" style="color: var(--status-warning);"></i> Materiais que Precisam de Atenção</h3>
+        </div>
+        <div class="materials-grid" id="dashboard-warning-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Últimas Baixas Registradas -->
+        <div class="section-header" style="margin-top: 2.5rem;">
+          <h3><i class="fa-solid fa-clock-rotate-left"></i> Últimas Baixas de Materiais</h3>
+          <button class="btn-secondary" id="btn-view-all-history" type="button" style="font-size: 0.8rem;">Ver Histórico Completo</button>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data / Hora (Automática)</th>
+                <th>Material</th>
+                <th>Qtd.</th>
+                <th>Equipe / Técnico</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-recent-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 2: CATÁLOGO DE ESTOQUE COMPLETO -->
+      <section class="tab-view" id="tab-catalog">
+        <div class="section-header">
+          <div class="search-filter-bar">
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" class="input-styled" id="catalog-search" placeholder="Digite para buscar material...">
+            </div>
+            <select class="select-styled" id="catalog-category-filter">
+              <option value="">Todas as Categorias</option>
+              <option value="Cabos">Cabos</option>
+              <option value="Conectores & Passivos">Conectores & Passivos</option>
+              <option value="Caixas & Passivos">Caixas & Passivos</option>
+              <option value="Equipamentos">Equipamentos</option>
+              <option value="Ferragens">Ferragens</option>
+              <option value="Insumos">Insumos</option>
+            </select>
+            <select class="select-styled" id="catalog-status-filter">
+              <option value="">Todos os Status</option>
+              <option value="normal">Normal</option>
+              <option value="warning">Estoque Baixo</option>
+              <option value="critical">Esgotado</option>
+            </select>
+          </div>
+
+          <button class="btn-secondary" id="btn-reset-materials" type="button" style="color: var(--status-critical); border-color: rgba(239,68,68,0.3);">
+            <i class="fa-solid fa-trash-can"></i> Zerar Lista de Materiais
+          </button>
+        </div>
+
+        <div class="materials-grid" id="catalog-grid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- TAB 3: DAR BAIXA DE MATERIAL -->
+      <section class="tab-view" id="tab-deduct-tab">
+        <div style="max-width: 600px; margin: 0 auto; background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glow);">
+          <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 0.5rem; font-size: 1.4rem;">
+            <i class="fa-solid fa-minus-circle" style="color: var(--status-critical);"></i> Registrar Saída de Material
+          </h3>
+          <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+            Digite o nome do material, a quantidade e selecione a equipe pré-definida.
+          </p>
+
+          <form id="form-tab-deduct">
+            <!-- Material com Busca Livre -->
+            <div class="form-group">
+              <label for="deduct-material-input">Digite o Nome do Material *</label>
+              <input type="text" id="deduct-material-input" list="materials-datalist" required placeholder="Escreva o nome do material..." autocomplete="off">
+              <datalist id="materials-datalist">
+                <!-- Populated by JS -->
+              </datalist>
+            </div>
+
+            <div class="form-group" id="deduct-current-info" style="display: none; background: var(--bg-secondary); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+              <span>Estoque Atual: <strong id="deduct-info-qty">0</strong></span> | 
+              <span>Mínimo: <strong id="deduct-info-min">0</strong></span>
+            </div>
+
+            <div class="form-group">
+              <label for="deduct-qty-input">Quantidade a Baixar *</label>
+              <input type="number" id="deduct-qty-input" min="1" required placeholder="Ex: 5">
+            </div>
+
+            <!-- Equipe Dropdown -->
+            <div class="form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+                <label for="deduct-tech-select" style="margin-bottom: 0;">Equipe / Técnico Solicitante *</label>
+                <button type="button" id="btn-quick-add-tech" style="background: none; border: none; color: var(--accent-primary); font-size: 0.8rem; cursor: pointer; font-weight: 600;">
+                  + Cadastrar Nova Equipe
+                </button>
+              </div>
+              <select id="deduct-tech-select" required class="select-styled" style="width: 100%;">
+                <option value="">Selecione a equipe...</option>
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Data & Hora do Registro</label>
+              <input type="text" id="deduct-auto-date" disabled style="background: rgba(255,255,255,0.05); color: var(--text-muted);" value="Data/Hora Atual Registrada Automaticamente">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; margin-top: 1rem;">
+              <i class="fa-solid fa-check"></i> Confirmar Baixa no Estoque
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 4: GERENCIAR EQUIPES -->
+      <section class="tab-view" id="tab-teams">
+        <div style="background: var(--bg-card); padding: 1.75rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glow); margin-bottom: 2rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+              <h3 style="font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-users-gear" style="color: var(--accent-primary);"></i> Gestão de Equipes e Técnicos</h3>
+              <p style="color: var(--text-muted); font-size: 0.875rem;">Cadastre, edite ou exclua as equipes que solicitam materiais na operação.</p>
+            </div>
+            <button class="btn-primary" id="btn-tab-add-tech" type="button">
+              <i class="fa-solid fa-plus"></i> Cadastrar Nova Equipe
+            </button>
+          </div>
+
+          <!-- Tabela de Equipes -->
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nome da Equipe / Técnico</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="teams-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: HISTÓRICO COMPLETO -->
+      <section class="tab-view" id="tab-history">
+        <div class="section-header">
+          <div class="search-filter-bar">
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" class="input-styled" id="history-search" placeholder="Filtrar por equipe ou item...">
+            </div>
+            <select class="select-styled" id="history-type-filter">
+              <option value="">Todos os Movimentos</option>
+              <option value="out">Somente Saídas (Baixas)</option>
+              <option value="in">Somente Entradas (Reabastecimento)</option>
+            </select>
+          </div>
+
+          <button class="btn-secondary" id="btn-export-csv" type="button">
+            <i class="fa-solid fa-file-excel"></i> Exportar CSV/Excel
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data / Hora (Automática)</th>
+                <th>Tipo</th>
+                <th>Material</th>
+                <th>Qtd.</th>
+                <th>Equipe / Técnico</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 6: RELATÓRIO PDF (EXCLUSIVO) -->
+      <section class="tab-view" id="tab-pdf-export">
+        <div class="btn-print-hide" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid var(--border-glow);">
+          <div>
+            <h3 style="font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> Exportar Relatório em PDF</h3>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">Gere o documento oficial com o saldo atual do estoque e todo o histórico de saídas.</p>
+          </div>
+          <button class="btn-primary" id="btn-download-pdf-now" type="button" style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 0.85rem 1.5rem;">
+            <i class="fa-solid fa-file-pdf"></i> Baixar Relatório em PDF
+          </button>
+        </div>
+
+        <!-- Opções do Relatório -->
+        <div class="btn-print-hide" style="background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; border: 1px solid var(--border-glow);">
+          <h4 style="font-family: 'Outfit', sans-serif; margin-bottom: 1rem; font-size: 1rem;">
+            <i class="fa-solid fa-sliders" style="color: var(--accent-primary);"></i> Selecione as seções do relatório:
+          </h4>
+          <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+            <label class="pdf-checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-glow); font-size: 0.9rem; transition: all 0.2s ease;">
+              <input type="checkbox" id="pdf-toggle-stock" checked style="accent-color: var(--accent-primary); width: 1.1rem; height: 1.1rem; cursor: pointer;">
+              <i class="fa-solid fa-boxes-stacked" style="color: var(--accent-primary);"></i> Materiais em Estoque
+            </label>
+            <label class="pdf-checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-glow); font-size: 0.9rem; transition: all 0.2s ease;">
+              <input type="checkbox" id="pdf-toggle-withdrawn" checked style="accent-color: var(--status-critical); width: 1.1rem; height: 1.1rem; cursor: pointer;">
+              <i class="fa-solid fa-arrow-right-from-bracket" style="color: var(--status-critical);"></i> Materiais Retirados (Baixas)
+            </label>
+            <label class="pdf-checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-glow); font-size: 0.9rem; transition: all 0.2s ease;">
+              <input type="checkbox" id="pdf-toggle-entries" checked style="accent-color: var(--status-normal); width: 1.1rem; height: 1.1rem; cursor: pointer;">
+              <i class="fa-solid fa-arrow-right-to-bracket" style="color: var(--status-normal);"></i> Entradas de Estoque
+            </label>
+          </div>
+        </div>
+
+        <!-- Preview do Relatório PDF (Pronto para Impressão / Salvar PDF) -->
+        <div class="pdf-preview-card" id="pdf-report-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+            <div>
+              <h1 style="font-size: 1.6rem; font-weight: 800; text-transform: uppercase;">Relatório Geral de Estoque &amp; Movimentação</h1>
+              <p style="font-size: 0.85rem; color: #475569;">Operação Técnica e Controle de Materiais</p>
+            </div>
+            <div style="text-align: right; font-size: 0.8rem; color: #475569;">
+              <p><strong>Emissão:</strong> <span id="pdf-emit-date">--/--/----</span></p>
+              <p>EstoqueOps v1.4</p>
+            </div>
+          </div>
+
+          <!-- Seção 1: Materiais em Estoque -->
+          <div id="pdf-section-stock">
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; background: #3b82f6; color: #fff; border-radius: 50%; font-size: 0.8rem; margin-right: 0.4rem;">1</span>
+              Posicionamento Atual do Estoque
+            </h3>
+            <table class="pdf-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Material</th>
+                  <th>Categoria</th>
+                  <th>Quantidade Atual</th>
+                  <th>Estoque Mínimo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="pdf-inventory-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Seção 2: Materiais Retirados (Baixas / Saídas) -->
+          <div id="pdf-section-withdrawn" style="margin-top: 2rem;">
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; background: #ef4444; color: #fff; border-radius: 50%; font-size: 0.8rem; margin-right: 0.4rem;">2</span>
+              Materiais Retirados (Baixas)
+            </h3>
+            <table class="pdf-table">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Material</th>
+                  <th>Qtd. Retirada</th>
+                  <th>Equipe / Técnico</th>
+                </tr>
+              </thead>
+              <tbody id="pdf-withdrawn-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Seção 3: Entradas de Estoque -->
+          <div id="pdf-section-entries" style="margin-top: 2rem;">
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; background: #22c55e; color: #fff; border-radius: 50%; font-size: 0.8rem; margin-right: 0.4rem;">3</span>
+              Entradas de Estoque (Reabastecimento)
+            </h3>
+            <table class="pdf-table">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Material</th>
+                  <th>Qtd. Entrada</th>
+                  <th>Responsável</th>
+                </tr>
+              </thead>
+              <tbody id="pdf-entries-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <button class="active" type="button" data-tab="dashboard"><i class="fa-solid fa-chart-pie"></i><span>Início</span></button>
+    <button type="button" data-tab="catalog"><i class="fa-solid fa-box"></i><span>Estoque</span></button>
+    <button type="button" data-tab="deduct-tab"><i class="fa-solid fa-minus-circle"></i><span>Baixa</span></button>
+    <button type="button" data-tab="teams"><i class="fa-solid fa-users"></i><span>Equipes</span></button>
+    <button type="button" data-tab="pdf-export"><i class="fa-solid fa-file-pdf"></i><span>PDF</span></button>
+  </nav>
+
+  <!-- MODALS -->
+
+  <!-- Modal 1: Baixa Rápida de Card -->
+  <div class="modal-overlay" id="modal-quick-deduct">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-deduct-item-title">Dar Baixa no Item</h3>
+        <button class="modal-close btn-close-modal" type="button">&times;</button>
+      </div>
+      <form id="form-modal-deduct">
+        <input type="hidden" id="modal-deduct-item-id">
+        <div class="form-group">
+          <label>Quantidade a Retirar *</label>
+          <input type="number" id="modal-deduct-qty" min="1" required placeholder="Qtd">
+        </div>
+        <div class="form-group">
+          <label>Equipe / Técnico Solicitante *</label>
+          <select id="modal-deduct-tech-select" required class="select-styled" style="width: 100%;">
+            <!-- Populated by JS -->
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary btn-close-modal">Cancelar</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Baixar Saldo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Nova Equipe / Técnico -->
+  <div class="modal-overlay" id="modal-add-tech">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-plus" style="color: var(--accent-primary);"></i> Cadastrar Nova Equipe / Técnico</h3>
+        <button class="modal-close btn-close-modal" type="button">&times;</button>
+      </div>
+      <form id="form-modal-add-tech">
+        <div class="form-group">
+          <label>Nome da Equipe ou Técnico *</label>
+          <input type="text" id="new-tech-name" required placeholder="Ex: Equipe 01 - Carlos / Técnico Marcos">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary btn-close-modal">Cancelar</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-plus"></i> Salvar Equipe</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Editar Equipe -->
+  <div class="modal-overlay" id="modal-edit-tech">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-pen-to-square" style="color: var(--status-warning);"></i> Editar Equipe / Técnico</h3>
+        <button class="modal-close btn-close-modal" type="button">&times;</button>
+      </div>
+      <form id="form-modal-edit-tech">
+        <input type="hidden" id="edit-tech-index">
+        <div class="form-group">
+          <label>Nome da Equipe ou Técnico *</label>
+          <input type="text" id="edit-tech-name" required placeholder="Ex: Equipe 01">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary btn-close-modal">Cancelar</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Atualizar Equipe</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Entrada / Reabastecimento -->
+  <div class="modal-overlay" id="modal-add-stock">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-dolly" style="color: var(--status-normal);"></i> Registrar Entrada de Estoque</h3>
+        <button class="modal-close btn-close-modal" type="button">&times;</button>
+      </div>
+      <form id="form-modal-add-stock">
+        <div class="form-group">
+          <label for="add-stock-material-input">Digite o Nome do Material *</label>
+          <input type="text" id="add-stock-material-input" list="materials-datalist" required placeholder="Escreva o nome do material...">
+        </div>
+        <div class="form-group">
+          <label>Quantidade Recebida *</label>
+          <input type="number" id="add-stock-qty" min="1" required placeholder="Ex: 50">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary btn-close-modal">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: var(--status-normal);"><i class="fa-solid fa-plus"></i> Adicionar ao Saldo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 5: Novo Material -->
+  <div class="modal-overlay" id="modal-add-material">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Cadastrar Novo Material</h3>
+        <button class="modal-close btn-close-modal" type="button">&times;</button>
+      </div>
+      <form id="form-modal-add-material">
+        <div class="form-group">
+          <label>Nome do Material *</label>
+          <input type="text" id="new-mat-name" required placeholder="Ex: Roteador Gigabit Dual Band">
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <select id="new-mat-category" class="select-styled" style="width: 100%;">
+            <option value="Cabos">Cabos</option>
+            <option value="Conectores & Passivos">Conectores & Passivos</option>
+            <option value="Caixas & Passivos">Caixas & Passivos</option>
+            <option value="Equipamentos">Equipamentos</option>
+            <option value="Ferragens">Ferragens</option>
+            <option value="Insumos">Insumos</option>
+          </select>
+        </div>
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div>
+            <label>Quantidade Inicial *</label>
+            <input type="number" id="new-mat-qty" min="0" required placeholder="Ex: 50">
+          </div>
+          <div>
+            <label>Unidade *</label>
+            <input type="text" id="new-mat-unit" required placeholder="Ex: unidades, metros">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Estoque Mínimo (Alerta) *</label>
+          <input type="number" id="new-mat-min" min="1" required placeholder="Ex: 10">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary btn-close-modal">Cancelar</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-save"></i> Salvar Material</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
